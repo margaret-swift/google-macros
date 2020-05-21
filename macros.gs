@@ -39,35 +39,29 @@ function ADD() {
   var itt = gA().getSheetByName(card);
   if (itt) { var card = card + Math.floor(Math.random() * 100) }
   
-  // Add player and create new sheet
+  // Add player and create new sheet for them
   addPlayer(name, card);
   createSheet(name, card);
 }
 function FOLD() {
   // Fold paper down to lock in your answer
-  
   var ss = gAS();
-  var stem = 'val' + getCurSheet().toFixed();
-  var props = PropertiesService.getScriptProperties();
-  
-  
-  // get current properties
-  var curRow = parseInt(props.getProperty(stem + 'curRow'));
+  var stem = getStem();
+  var props = getProps();
   var curSheet = getCurSheet();
+  var curRow  = getCurRow();
   var nextRow = curRow + 1
+  var setRow  = curRow - 1
   var val = ss.getRange(curRow, 2).getValue()
   
   // Get value just written
-  var setRow = curRow-1
   props.setProperty(stem + setRow, val)  
   ss.getRange('B2:B7').clear({contentsOnly: true});
   
   // Reset colors to next
-  var colorcode = ss.getRange('A1').getValue()
+  var colorcode = props.getProperty(stem + 'color')
   ss.getRange('B2:B7').setBackground('#cccccc');
-  if (curRow < 7){ 
-    ss.getRange(nextRow, 2).setBackground(colorcode) 
-  };
+  if (curRow < 7){ ss.getRange(nextRow, 2).setBackground(colorcode) };
   
   // Set cur and next and status to Ready
   props.setProperty(stem + 'curRow', nextRow); 
@@ -78,43 +72,43 @@ function FOLD() {
 }
 function PASS() {
   // passes player to the next sheet in the lineup.
-  
   var ss = gASS();
+  var sheets = getPlayerSheets();
   var curSheet = getCurSheet();
-  var sheets = getPlayerSheets()
-
-  // Swap to next sheet, circling back if last.
   var nextSheet = curSheet + 1
+  var stem = getStem();
+  var props = getProps();
+  var curRow = getCurRow();
+  
+  // Swap to next sheet, circling back if last.
   if (nextSheet == sheets.length) { nextSheet = 0 }
   next = ss.getSheetByName(sheets[nextSheet]);
   next.activate();
     
   // Reveal message if game is over
-  var stem = 'val' + getCurSheet().toFixed();
-  var props = PropertiesService.getScriptProperties();
-  var curRow = parseInt(props.getProperty(stem + 'curRow'));
   if (curRow >= 8){ 
     Browser.msgBox('Time to reveal your answers! Click the "Reveal" button in the game menu.');
   } else { setStatus('waiting', curSheet) };
 }
 function RESET() {
   // Resets spreadsheet content and properties
-  
-  // get spreadsheet and properties
   var ss = gA();
-  var props = PropertiesService.getScriptProperties();
+  var props = getProps();
   var curSheet = getCurSheet();
+  var stem = getStem();
+  
   // set colors
-  var colorcode = ss.getRange('A1').getValue();
+  var colorcode = props.getProperty(stem + 'color')
   ss.getRange('B2:B7').setBackground('#cccccc');
   ss.getRange('B2').setBackground(colorcode);
+  
   // clear content
   ss.getRange('B2:B7').clear({contentsOnly: true});
+  
   // set status
   setStatus('waiting', curSheet);
   
   // reset cached values
-  var stem = 'val' + getCurSheet().toFixed();
   props.setProperty(stem + 'curRow', 2);
   props.setProperty(stem + '1', 'no answer yet');
   props.setProperty(stem + '2', 'no answer yet');
@@ -125,13 +119,11 @@ function RESET() {
 }
 function TOTALRESET() {
   // resets game completely to just template and instructions.
-  
   Browser.msgBox("Make sure you want to erase all players before proceeding!")
   
   // Resets whole game and removes players
   var ss = gA();
   var sheets = getPlayerSheets();
-  var inst = getSpSheet(0);
   
   // reset and remove sheets
   for (inx in sheets) {
@@ -143,15 +135,14 @@ function TOTALRESET() {
     }
   }
   
-  // clear player info
-  inst.getRange('B5:D14').clear({contentsOnly: true}).setBackground('#ffffff');
+  // clear player info on main sheet
+  gSS(0).getRange('B5:D14').clear({contentsOnly: true}).setBackground('#ffffff');
 }
 function REVEAL() {
   // reveal everyone's answers
-  
   var ss = gA();
-  var props = PropertiesService.getScriptProperties();
-  var stem = 'val' + getCurSheet().toFixed();
+  var props = getProps();
+  var stem = getStem();
   
   // remove colors
   ss.getRange('B2:B7').setBackground('#ffffff');
@@ -168,10 +159,10 @@ function HIDE() {
   // undo reveal answers
   
   var ss = gA();
-  var props = PropertiesService.getScriptProperties();
-  var stem = 'val' + getCurSheet().toFixed();
-  var curRow = parseInt(props.getProperty(stem + 'curRow'));
-  var colorcode = ss.getRange('A1').getValue()
+  var props = getProps();
+  var stem = getStem();
+  var curRow = getCurRow();
+  var colorcode = props.getProperty(stem + 'color');
   
   // set colors
   ss.getRange('B2:B7').setBackground('#cccccc');
@@ -189,22 +180,25 @@ function HIDE() {
 function createSheet(name, card) {
   // Create a new sheet with player's name and animal
   var ss = gA();
-  var sheet = getSpSheet(1).copyTo(ss);
-  var inst = getSpSheet(0);
+  var props = getProps();
+  var sheet = gSS(1).copyTo(ss);
+  var inst = gSS(0);
   
   // Color
-  var colorcode = '#' + Math.ceil(Math.random() * 0xFFFFFF).toString(16);
-
+  var colorcode = randColor();
+  
   // Update sheet with player info.
   sheet.activate();
   ss.getActiveSheet().setName(card);
   ss.getRange('B1').setValue(card).setFontColor(colorcode);
   ss.getRange('B2').setBackground(colorcode);
-  ss.getRange('A1').setValue(colorcode);
+  
+  var stem = getStem();
+  props.setProperty(stem + 'color', colorcode)
 };
 function addPlayer(name, card) {
   // Add player to list at beginning.
-  var sheet = getSpSheet(0);
+  var sheet = gSS(0);
   sheet.activate();
   var inx = getFirstEmptyRow('B5:B14') + 5;
   
@@ -212,36 +206,18 @@ function addPlayer(name, card) {
   sheet.getRange('C' + inx).setValue(card);
   setStatus('waiting', inx-5);
 }
-function getPlayerSheets() {
-  // find all the sheets that are actual gameplay (not instructions/template)
-  var sheet = getSpSheet(0);
-  var sheets = sheet.getRange('C5:C14').getValues();
-  var inx = findMatchingInList('', sheets)
-  var sheets = sheets.slice(0, inx)
-  return(sheets);
-}
-function getPlayerNames() {
-  // like it says on the tin
-  var sheet = getSpSheet(0);
-  var names = sheet.getRange('B5:B14').getValues();
-  var inx = findMatchingInList('', names)
-  var names = names.slice(0, inx)
-  return(names);
-}
 function bumpPlayers() {
-  // move everyone's name to the right card.
-  var sheet = getSpSheet(0);
+  // Moves everyone's name to the right card.
+  var sheet = gSS(0);
   var names = getPlayerNames()
   
-  // Rearrange names to bump last to first
+  // Create shifted list
   var result = [];
-  var L = names.length-1
-  result.push(names[L])
-  for (i in names) {
-    if (i < L) result.push(names[i])
-  }
+  var L = names.length - 1
+  result.push(names[L]) // move last to first
+  for (i in names) { if (i < L) result.push(names[i]) };
   
-  // reset names in cells.
+  // Reset names in cells.
   var inx = 5 + L
   var range = 'B5:B' + inx
   sheet.getRange(range).setValues(result);
@@ -252,33 +228,51 @@ function bumpPlayers() {
 // UTILITY FUNCTIONS
 //--------------------------------------------------------------------------------
 
+// GET functions
+function gA() { return SpreadsheetApp.getActive(); }
+function gAS() { return SpreadsheetApp.getActiveSheet(); }
+function gASS() { return SpreadsheetApp.getActiveSpreadsheet(); }
+function gSS(inx) { return gASS().getSheets()[inx]; }
+function getStem() { return 'val' + getCurSheet().toFixed() }
+function getProps() { return PropertiesService.getScriptProperties() }
+function getCurRow() { return parseInt(getProps().getProperty(getStem() + 'curRow')) }
+function getPlayerSheets() { return getList('C5:C14') }
+function getPlayerNames()  { return getList('B5:B14') }
+function getCurSheet() { return findMatchingInList(gAS().getName(), getPlayerSheets()) }
+function getFirstEmptyRow(range) {
+  var values = gASS().getRange(range).getValues();
+  var ct = 0;
+  while ( values[ct][0] != "" ) { ct++ };
+  return ct
+}
+function getList(range) {
+  var sheet = gSS(0);
+  var vals = sheet.getRange(range).getValues();
+  var inx = findMatchingInList('', vals)
+  return vals.slice(0, inx)
+}
+
+
+// MISC
+function randColor() { return '#' + Math.ceil(Math.random() * 0xFFFFFF).toString(16); }
+function checkPass() {
+  // If everyone is ready, tell players to pass
+  if (gSS(0).getRange('E5').getValue() == true) { 
+    Browser.msgBox('Time to pass your paper! Click "Pass Paper" in the Game Menu.') 
+    for (i in getPlayerSheets()) { setStatus('waiting', i) }
+    bumpPlayers();
+  };
+}
 function findMatchingInList(name, arr) {
   // to find which item in the list matches key
   var ct = 0;
   while ( arr[ct][0] != name ) { ct++ };
-  return (ct);
+  return ct
 }
-function getFirstEmptyRow(range) {
-  // find the end of the list
-  var column = gASS().getRange(range);
-  var values = column.getValues(); // get all data in one call
-  var ct = 0;
-  while ( values[ct][0] != "" ) { ct++ };
-  return (ct);
-}
-function getCurSheet() {
-  // get current sheet's index
-  var name = gASS().getActiveSheet().getName();
-  var sheets = getPlayerSheets();
-  var inx = findMatchingInList(name, sheets);
-  return inx
-}
-
 function setStatus(status, inx) {
   // set status to ready or waiting
-  var sheet = getSpSheet(0);
   var inx = 5 + inx
-  var cell = sheet.getRange('D' + inx)
+  var cell = gSS(0).getRange('D' + inx)
   if (status=='ready') {
     cell.setValue('READY');
     cell.setBackground('#0bb337');
@@ -287,19 +281,5 @@ function setStatus(status, inx) {
     cell.setBackground('#FF5733');
   }
 }
-function checkPass() {
-  // If everyone is ready, tell players to pass
-  var sheet = getSpSheet(0);
-  if (sheet.getRange('E5').getValue() == true) { 
-    Browser.msgBox('Time to pass your paper! Click "Pass Paper" in the Game Menu.') 
-    var sheets = getPlayerSheets();
-    for (i in sheets) { setStatus('waiting', i) }
-    bumpPlayers();
-  };
-}
 
-// GET functions for brevity
-function getSpSheet(inx) { return gASS().getSheets()[inx]; }
-function gA() { return SpreadsheetApp.getActive(); }
-function gAS() { return SpreadsheetApp.getActiveSheet(); }
-function gASS() { return SpreadsheetApp.getActiveSpreadsheet(); }
+// eof
