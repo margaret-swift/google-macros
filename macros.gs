@@ -32,12 +32,11 @@ function onOpen(e) {
 
 function ADD() {
   // Ask player for name and an animal
-  var ss = SpreadsheetApp.getActive();
   var name = Browser.inputBox('Enter your name.');
   var card = Browser.inputBox('Give your card a fun animal name.');
   
   // Control for duplicate card names
-  var itt = ss.getSheetByName(card);
+  var itt = gA().getSheetByName(card);
   if (itt) { var card = card + Math.floor(Math.random() * 100) }
   
   // Add player and create new sheet
@@ -47,16 +46,16 @@ function ADD() {
 function FOLD() {
   // Fold paper down to lock in your answer
   
-  var ss = getSS();
+  var ss = gAS();
   var stem = 'val' + getCurSheet().toFixed();
   var props = PropertiesService.getScriptProperties();
+  
   
   // get current properties
   var curRow = parseInt(props.getProperty(stem + 'curRow'));
   var curSheet = getCurSheet();
   var nextRow = curRow + 1
   var val = ss.getRange(curRow, 2).getValue()
-  
   
   // Get value just written
   var setRow = curRow-1
@@ -80,7 +79,7 @@ function FOLD() {
 function PASS() {
   // passes player to the next sheet in the lineup.
   
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = gASS();
   var curSheet = getCurSheet();
   var sheets = getPlayerSheets()
 
@@ -102,7 +101,7 @@ function RESET() {
   // Resets spreadsheet content and properties
   
   // get spreadsheet and properties
-  var ss = SpreadsheetApp.getActive();
+  var ss = gA();
   var props = PropertiesService.getScriptProperties();
   var curSheet = getCurSheet();
   // set colors
@@ -130,9 +129,9 @@ function TOTALRESET() {
   Browser.msgBox("Make sure you want to erase all players before proceeding!")
   
   // Resets whole game and removes players
-  var ss = SpreadsheetApp.getActive()
+  var ss = gA();
   var sheets = getPlayerSheets();
-  var inst = ss.getSheetByName('Instructions');
+  var inst = getSpSheet(0);
   
   // reset and remove sheets
   for (inx in sheets) {
@@ -150,7 +149,7 @@ function TOTALRESET() {
 function REVEAL() {
   // reveal everyone's answers
   
-  var ss = SpreadsheetApp.getActive();
+  var ss = gA();
   var props = PropertiesService.getScriptProperties();
   var stem = 'val' + getCurSheet().toFixed();
   
@@ -168,7 +167,7 @@ function REVEAL() {
 function HIDE() {
   // undo reveal answers
   
-  var ss = SpreadsheetApp.getActive();
+  var ss = gA();
   var props = PropertiesService.getScriptProperties();
   var stem = 'val' + getCurSheet().toFixed();
   var curRow = parseInt(props.getProperty(stem + 'curRow'));
@@ -176,7 +175,7 @@ function HIDE() {
   
   // set colors
   ss.getRange('B2:B7').setBackground('#cccccc');
-  ss.getRange('B'+curRow).setBackground(colorcode);
+  if (curRow < 8) { ss.getRange('B'+curRow).setBackground(colorcode) };
   
   // clear answers
   ss.getRange('B2:B7').clear({contentsOnly: true});
@@ -189,9 +188,9 @@ function HIDE() {
 
 function createSheet(name, card) {
   // Create a new sheet with player's name and animal
-  var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getSheetByName('Template').copyTo(ss);
-  var inst = ss.getSheetByName('Instructions');
+  var ss = gA();
+  var sheet = getSpSheet(1).copyTo(ss);
+  var inst = getSpSheet(0);
   
   // Color
   var colorcode = '#' + Math.ceil(Math.random() * 0xFFFFFF).toString(16);
@@ -205,8 +204,8 @@ function createSheet(name, card) {
 };
 function addPlayer(name, card) {
   // Add player to list at beginning.
-  var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getSheetByName('Instructions');
+  var sheet = getSpSheet(0);
+  sheet.activate();
   var inx = getFirstEmptyRow('B5:B14') + 5;
   
   sheet.getRange('B' + inx).setValue(name);
@@ -215,8 +214,7 @@ function addPlayer(name, card) {
 }
 function getPlayerSheets() {
   // find all the sheets that are actual gameplay (not instructions/template)
-  var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getSheetByName('Instructions');
+  var sheet = getSpSheet(0);
   var sheets = sheet.getRange('C5:C14').getValues();
   var inx = findMatchingInList('', sheets)
   var sheets = sheets.slice(0, inx)
@@ -224,8 +222,7 @@ function getPlayerSheets() {
 }
 function getPlayerNames() {
   // like it says on the tin
-  var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getSheetByName('Instructions');
+  var sheet = getSpSheet(0);
   var names = sheet.getRange('B5:B14').getValues();
   var inx = findMatchingInList('', names)
   var names = names.slice(0, inx)
@@ -233,8 +230,7 @@ function getPlayerNames() {
 }
 function bumpPlayers() {
   // move everyone's name to the right card.
-  var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getSheetByName('Instructions');
+  var sheet = getSpSheet(0);
   var names = getPlayerNames()
   
   // Rearrange names to bump last to first
@@ -264,8 +260,7 @@ function findMatchingInList(name, arr) {
 }
 function getFirstEmptyRow(range) {
   // find the end of the list
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var column = ss.getRange(range);
+  var column = gASS().getRange(range);
   var values = column.getValues(); // get all data in one call
   var ct = 0;
   while ( values[ct][0] != "" ) { ct++ };
@@ -273,37 +268,38 @@ function getFirstEmptyRow(range) {
 }
 function getCurSheet() {
   // get current sheet's index
-  var name = getSS().getName();
+  var name = gASS().getActiveSheet().getName();
   var sheets = getPlayerSheets();
   var inx = findMatchingInList(name, sheets);
   return inx
 }
-function getSS() {
-  // shortcut for this gobbledygook
-  return SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-}
+
 function setStatus(status, inx) {
   // set status to ready or waiting
+  var sheet = getSpSheet(0);
   var inx = 5 + inx
-  var cell = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0].getRange('D' + inx)
+  var cell = sheet.getRange('D' + inx)
   if (status=='ready') {
     cell.setValue('READY');
     cell.setBackground('#0bb337');
   } else {
     cell.setValue('Waiting...');
-    cell.setBackground('#fcba03');
+    cell.setBackground('#FF5733');
   }
 }
 function checkPass() {
   // If everyone is ready, tell players to pass
-  var ss = SpreadsheetApp.getActive();
-  var sheet = ss.getSheetByName('Instructions');
+  var sheet = getSpSheet(0);
   if (sheet.getRange('E5').getValue() == true) { 
-    Browser.msgBox('TIME TO PASS!') 
+    Browser.msgBox('Time to pass your paper! Click "Pass Paper" in the Game Menu.') 
     var sheets = getPlayerSheets();
     for (i in sheets) { setStatus('waiting', i) }
     bumpPlayers();
   };
 }
 
-
+// GET functions for brevity
+function getSpSheet(inx) { return gASS().getSheets()[inx]; }
+function gA() { return SpreadsheetApp.getActive(); }
+function gAS() { return SpreadsheetApp.getActiveSheet(); }
+function gASS() { return SpreadsheetApp.getActiveSpreadsheet(); }
