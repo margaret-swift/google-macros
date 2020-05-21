@@ -12,12 +12,15 @@
 function onOpen(e) {
   // Add items to game menu
   SpreadsheetApp.getUi()
-    .createMenu('Game Menu') // .createAddonMenu()
+    .createMenu('Game Menu')
     .addItem('Add Player', 'ADD')
+    .addSeparator()
     .addItem('Fold Paper', 'FOLD')
     .addItem('Pass Paper', 'PASS')
+    .addSeparator()
     .addItem('Reveal Answers', 'REVEAL')
     .addItem('Hide Answers', 'HIDE')
+    .addSeparator()
     .addItem('Reset Card', 'RESET')
     .addItem('Erase Player Data', 'TOTALRESET')
     .addToUi();
